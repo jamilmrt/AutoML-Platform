@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  # 1. Message Broker
+  redis:
+    image: redis:7-alpine
+    container_name: automl_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - automl_network
+
+  # 2. Flask API
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: automl_api
+    ports:
+      - "5000:5000"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - UPLOAD_FOLDER=/app/shared_data
+    volumes:
+      - ./backend:/app
+      - shared-data:/app/shared_data
+    depends_on:
+      - redis
+    networks:
+      - automl_network
+
+  # 3. Celery ML Worker
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: automl_worker
+    # Command overrides the default Flask command to boot Celery instead
+    command: celery -A tasks.celery_app worker --loglevel=info
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+      - UPLOAD_FOLDER=/app/shared_data
+    volumes:
+      - ./backend:/app
+      - shared-data:/app/shared_data
+    depends_on:
+      - redis
+      - api
+    networks:
+      - automl_network
+
+volumes:
+  shared-data:
+
+networks:
+  automl_network:
+    driver: bridge

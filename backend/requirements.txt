@@ -1,0 +1,7 @@
+flask
+flask-cors
+celery
+redis
+pandas
+scikit-learn
+joblib
