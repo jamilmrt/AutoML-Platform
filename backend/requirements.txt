@@ -5,3 +5,4 @@ redis
 pandas
 scikit-learn
 joblib
+ydata-profiling==4.12.0

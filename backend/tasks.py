@@ -1,3 +1,6 @@
+
+
+
 import os
 import pandas as pd
 import numpy as np
@@ -13,6 +16,9 @@ from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.metrics import accuracy_score, r2_score, silhouette_score
 from sklearn.cluster import KMeans
 
+#  Additional imports for profiling for analysis and insights
+from ydata_profiling import ProfileReport
+
 # Initialize Celery app (connects to the Redis broker from docker-compose)
 celery_app = Celery('automl_tasks', broker=os.getenv('CELERY_BROKER_URL', 'redis://localhost:6379/0'))
 
@@ -26,7 +32,23 @@ def train_model_task(self, file_path, target_column, job_id):
         self.update_state(state='TRAINING', meta={'message': 'Loading data'})
         
         # 1. Load Data
-        df = pd.read_csv(file_path)
+        df = pd.read_csv(file_path)-
+        
+        # --- NEW: GENERATE PANDAS PROFILING REPORT ---
+        self.update_state(state='TRAINING', meta={'message': 'Generating Data Profiling Report'})
+        
+        # Build the profile report (explorative=True enables deeper multi-variable insights)
+        profile = ProfileReport(df, title="AutoML Data Profiling Report", explorative=True)
+        
+        # Save it directly to our shared docker volume
+        report_filename = f"/app/shared_data/report_{job_id}.html"
+        profile.to_file(report_filename)
+        # ---------------------------------------------
+        
+        # Save JSON for PowerBI / External BI Tools
+        json_filename = f"/app/shared_data/report_{job_id}.json"
+        profile.to_file(json_filename)
+        # ---------------------------------------------
         
         # 2. Automated Feature Engineering & Cleaning Setup
         # We define this first because all 3 paths (Clustering, Classification, Regression) need it.
@@ -93,7 +115,8 @@ def train_model_task(self, file_path, target_column, job_id):
                 'winning_model': f'K-Means (k={best_k})',
                 'accuracy': round(best_score, 4),
                 'model_path': model_filename,
-                'insights': model_insights
+                'insights': model_insights,
+            'has_report': True # <-- Let the frontend know a report exists
             }
 
         # ==========================================

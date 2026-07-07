@@ -4,6 +4,8 @@ from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from tasks import train_model_task, celery_app
+from flask import send_from_directory
+
 
 app = Flask(__name__)
 
@@ -83,6 +85,42 @@ def download_endpoint(job_id):
         return send_file(file_path, as_attachment=True)
         
     return jsonify({'error': 'Model not found'}), 404
+
+
+
+@app.route('/api/report/<job_id>', methods=['GET'])
+def get_report(job_id):
+    """Serves the interactive profiling report or triggers a download."""
+    filename = f"report_{job_id}.html"
+    
+    # Check if download query parameter is passed (?download=true)
+    as_attachment = request.args.get('download', 'false').lower() == 'true'
+    
+    try:
+        return send_from_directory(
+            '/app/shared_data', 
+            filename, 
+            as_attachment=as_attachment,
+            download_name=f"data_profile_{job_id}.html"
+        )
+    except FileNotFoundError:
+        return {"error": "Report not found"}, 404
+
+
+@app.route('/api/report/powerbi/<job_id>', methods=['GET'])
+def get_powerbi_report(job_id):
+    """Serves the raw JSON profiling data for PowerBI ingestion."""
+    filename = f"report_{job_id}.json"
+    
+    try:
+        return send_from_directory(
+            '/app/shared_data', 
+            filename, 
+            as_attachment=True,
+            download_name=f"powerbi_data_profile_{job_id}.json"
+        )
+    except FileNotFoundError:
+        return {"error": "PowerBI JSON report not found"}, 404
 
 if __name__ == '__main__':
     # Run on 0.0.0.0 so the Docker container exposes it to the network
