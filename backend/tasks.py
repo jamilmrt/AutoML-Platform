@@ -32,7 +32,7 @@ def train_model_task(self, file_path, target_column, job_id):
         self.update_state(state='TRAINING', meta={'message': 'Loading data'})
         
         # 1. Load Data
-        df = pd.read_csv(file_path)-
+        df = pd.read_csv(file_path)
         
         # --- NEW: GENERATE PANDAS PROFILING REPORT ---
         self.update_state(state='TRAINING', meta={'message': 'Generating Data Profiling Report'})
